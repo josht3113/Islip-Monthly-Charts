@@ -1,0 +1,192 @@
+<details>
+<summary>Click to expand the full HTML — then select all and copy</summary>
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ISP Weather Heatmap — Islip, NY</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0A0A0A; }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useMemo, useCallback, useEffect } = React;
+    const DATA_BASE_URL = 'https://josht3113.github.io/Islip-Monthly-Charts/';
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const FULL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const HOUR_LABELS = ['Midnight','1','2','3','4','5','6','7','8','9','10','11','Noon','1','2','3','4','5','6','7','8','9','10','11'];
+    const YEARS = Array.from({length: 38}, (_, i) => 1988 + i);
+    const DATA_TYPES = [
+      {id:'temp',     label:'Temperature',      unit:'°F', fmt:(v)=>v==null?'':String(Math.round(v))},
+      {id:'td',       label:'Dewpoint',         unit:'°F', fmt:(v)=>v==null?'':String(Math.round(v))},
+      {id:'clouds',   label:'Cloud Cover',      unit:'ok', fmt:(v)=>v==null?'':''},
+      {id:'wind',     label:'Wind Speed',       unit:'mph', fmt:(v)=>v==null?'':String(Math.round(v))},
+      {id:'temp_anom',label:'Temp Anomaly',     unit:'°F', fmt:(v)=>v==null?'':(Math.round(v)>0?'+':'')+Math.round(v)},
+      {id:'td_anom',  label:'Dewpoint Anomaly', unit:'°F', fmt:(v)=>v==null?'':(Math.round(v)>0?'+':'')+Math.round(v)},
+      {id:'temp_z',   label:'Temp Std Dev',     unit:'σ',  fmt:(v)=>v==null?'':v.toFixed(1)},
+      {id:'td_z',     label:'Dewpoint Std Dev', unit:'σ',  fmt:(v)=>v==null?'':v.toFixed(1)},
+    ];
+    const SCALES = {
+      temp:      { vals: [-5,25,50,75,102],         cols: ['#FFB3C6','#A8D4F0','#5DBF6A','#FFE033','#D41A1A'] },
+      td:        { vals: [-25,5,18,30,55,68,80],    cols: ['#4A3410','#B89870','#D4C060','#FFEE00','#3DB84A','#2A8C30','#2A72C8'] },
+      clouds:    { vals: [1,2,3,4,5],               cols: ['#F5FA82','#C5C46A','#848477','#626258','#404040'] },
+      wind:      { vals: [0,5,10,15,20,25,30,40],   cols: ['#232323','#545E6B','#7D9BB5','#B4C8E3','#CEB8CC','#E09999','#EC7570','#E3625C'] },
+      temp_anom: { vals: [-30,-10,-3,0,3,10,30],    cols: ['#4466EE','#2E4A60','#162130','#0D1620','#3A1010','#AA1010','#FF3434'] },
+      td_anom:   { vals: [-30,-15,-5,0,5,15,30],    cols: ['#C8920A','#8C6208','#3D2A02','#2B2200','#2A3800','#4A6A00','#7DC840'] },
+      temp_z:    { vals: [-5,-3,-2,-1.2,-0.5,0,0.5,1.2,2,3,5], cols: ['#FFB3C6','#6AAACF','#3E7AAA','#1E4A72','#0D2238','#0D1218','#38120A','#962010','#D03A18','#F05030','#FFE000'] },
+      td_z:      { vals: [-5,-3,-2,-1.2,-0.5,0,0.5,1.2,2,3,5], cols: ['#FFB3C6','#68A8CC','#3C78A8','#1C4870','#0C2036','#0D1218','#38120A','#942010','#CC3816','#EE4E2E','#FFE000'] },
+    };
+    function h2r(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+    function lerp(a,b,t){return Math.round(a+(b-a)*t);}
+    function getColor(val,sc){
+      if(val==null)return'#000000';
+      const{vals,cols}=sc;
+      if(val<=vals[0])return cols[0];
+      if(val>=vals[vals.length-1])return cols[cols.length-1];
+      for(let i=0;i<vals.length-1;i++){
+        if(val>=vals[i]&&val<=vals[i+1]){
+          const t=(val-vals[i])/(vals[i+1]-vals[i]);
+          const[r0,g0,b0]=h2r(cols[i]);
+          const[r1,g1,b1]=h2r(cols[i+1]);
+          return`rgb(${lerp(r0,r1,t)},${lerp(g0,g1,t)},${lerp(b0,b1,t)})`;
+        }
+      }
+      return cols[cols.length-1];
+    }
+    function cellTextColor(dt){return(dt==='temp'||dt==='td')?'#000000':'#FFFFFF';}
+    function anomBg(col,val,dt){
+      if((dt==='temp_anom'||dt==='td_anom')&&val!=null&&Math.abs(val)<5){
+        let r,g,b;
+        if(col.startsWith('rgb')){[r,g,b]=col.match(/\d+/g).map(Number);}
+        else{[r,g,b]=h2r(col);}
+        const f=0.725;
+        return`rgb(${Math.round(r*f)},${Math.round(g*f)},${Math.round(b*f)})`;
+      }
+      return col;
+    }
+    function avg(arr,n){
+      const vals=arr.slice(0,n).filter(v=>v!=null);
+      if(!vals.length)return null;
+      return vals.reduce((a,b)=>a+b,0)/vals.length;
+    }
+    function scaleToCss(sc){
+      const{vals,cols}=sc;
+      const lo=vals[0],hi=vals[vals.length-1],span=hi-lo;
+      const stops=cols.map((c,i)=>`${c} ${((vals[i]-lo)/span*100).toFixed(1)}%`);
+      return`linear-gradient(to right, ${stops.join(', ')})`;
+    }
+    const FONT="'Aptos', 'Segoe UI', system-ui, sans-serif";
+    const CW=29,CH=26,LW=72,AW=47;
+    function ISPHeatmap(){
+      const[year,setYear]=useState(2025);
+      const[month,setMonth]=useState('Jan');
+      const[dataType,setDataType]=useState('temp');
+      const[yearData,setYearData]=useState(null);
+      const[loading,setLoading]=useState(false);
+      const[error,setError]=useState(null);
+      useEffect(()=>{
+        setLoading(true);
+        setError(null);
+        setYearData(null);
+        fetch(`${DATA_BASE_URL}${year}.json`)
+          .then(r=>{ if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+          .then(data=>{ setYearData(data); setLoading(false); })
+          .catch(e=>{ setError(`${e.message} — tried: ${DATA_BASE_URL}${year}.json`); setLoading(false); });
+      },[year]);
+      const md=yearData?.[month];
+      const nDays=md?.nDays??31;
+      const grid=md?.[dataType]??null;
+      const sc=SCALES[dataType];
+      const dt=DATA_TYPES.find(d=>d.id===dataType);
+      const mIdx=MONTHS.indexOf(month);
+      const rowAvgs=useMemo(()=>{ if(!grid)return Array(24).fill(null); return grid.map(row=>avg(row,nDays)); },[grid,nDays]);
+      const colAvgs=useMemo(()=>{ if(!grid)return []; return Array.from({length:nDays},(_,d)=>avg(grid.map(r=>r[d]),24)); },[grid,nDays]);
+      const overallAvg=useMemo(()=>{ const vals=rowAvgs.filter(v=>v!=null); return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null; },[rowAvgs]);
+      const Cell=useCallback(({val})=>{
+        const bg=anomBg(getColor(val,sc),val,dataType);
+        const tc=cellTextColor(dataType);
+        return(<div style={{width:CW,height:CH,flexShrink:0,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:tc,fontWeight:700,fontFamily:FONT,letterSpacing:'-0.3px',boxSizing:'border-box',borderRight:'1px solid rgba(0,0,0,0.3)',borderBottom:'1px solid rgba(0,0,0,0.3)',userSelect:'none'}}>{dt.fmt(val)}</div>);
+      },[sc,dt,dataType]);
+      const loVal=sc.vals[0];
+      const hiVal=sc.vals[sc.vals.length-1];
+      return(
+        <div style={{background:'#0A0A0A',minHeight:'100vh',fontFamily:FONT,padding:'14px 12px',boxSizing:'border-box',color:'#e0e0e0'}}>
+          <div style={{marginBottom:10}}>
+            <div style={{color:'#FFFFFF',fontSize:22,fontWeight:700,letterSpacing:'0.03em',lineHeight:1.2}}>{dt.label}&nbsp;&nbsp;|&nbsp;&nbsp;Islip, NY</div>
+            <div style={{color:'#FFD700',fontSize:16,fontWeight:700,marginTop:2}}>{FULL_MONTHS[mIdx]} {year}</div>
+          </div>
+          <div style={{marginBottom:8}}>
+            <label style={{fontSize:11,color:'#888',marginRight:8}}>Year:</label>
+            <select value={year} onChange={e=>setYear(Number(e.target.value))} style={{background:'#1a1a1a',border:'1px solid #2a2a2a',color:'#7ec8ff',padding:'3px 8px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT,fontWeight:700}}>
+              {YEARS.map(y=>(<option key={y} value={y}>{y}</option>))}
+            </select>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <span style={{fontSize:11,color:'#888'}}>{loVal}{dt.unit}</span>
+            <div style={{height:12,width:220,borderRadius:1,background:scaleToCss(sc),border:'1px solid rgba(255,255,255,0.08)'}}/>
+            <span style={{fontSize:11,color:'#888'}}>{hiVal}{dt.unit}</span>
+          </div>
+          <div style={{display:'flex',gap:3,marginBottom:6,flexWrap:'wrap'}}>
+            {MONTHS.map(m=>(<button key={m} onClick={()=>setMonth(m)} style={{background:m===month?'#1a3050':'#111',border:`1px solid ${m===month?'#4da6ff':'#2a2a2a'}`,color:m===month?'#7ec8ff':'#8899aa',padding:'3px 9px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT,fontWeight:m===month?700:400}}>{m}</button>))}
+          </div>
+          <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}}>
+            {DATA_TYPES.map(dt2=>(<button key={dt2.id} onClick={()=>setDataType(dt2.id)} style={{background:dt2.id===dataType?'#111a0a':'#111',border:`1px solid ${dt2.id===dataType?'#FFD700':'#2a2a2a'}`,color:dt2.id===dataType?'#FFD700':'#8899aa',padding:'2px 7px',fontSize:9,cursor:'pointer',borderRadius:2,fontFamily:FONT,fontWeight:dt2.id===dataType?700:400,whiteSpace:'nowrap'}}>{dt2.label}</button>))}
+          </div>
+          {loading&&(<div style={{color:'#4da6ff',fontSize:13,padding:'20px 0'}}>Loading {year} data…</div>)}
+          {error&&(<div style={{color:'#FF6666',fontSize:13,padding:'20px 0'}}>Error: {error}</div>)}
+          {!loading&&!error&&grid&&(
+            <div style={{display:'inline-block',border:'1.5px solid rgba(255,255,255,0.85)',borderRadius:2,overflow:'hidden'}}>
+              <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+                <div style={{display:'inline-block',minWidth:'max-content'}}>
+                  <div style={{display:'flex',alignItems:'center',background:'#0A0A0A',marginBottom:1}}>
+                    <div style={{width:LW,flexShrink:0}}/>
+                    {Array.from({length:nDays},(_,i)=>(<div key={i} style={{width:CW,flexShrink:0,textAlign:'center',color:'#FFFFFF',fontSize:11,fontWeight:700,lineHeight:`${CH}px`,fontFamily:FONT}}>{i+1}</div>))}
+                    <div style={{width:8,flexShrink:0}}/>
+                    <div style={{width:AW,flexShrink:0,textAlign:'center',color:'#FFD700',fontSize:11,fontWeight:700,lineHeight:`${CH}px`,fontFamily:FONT}}>Avg</div>
+                  </div>
+                  {HOUR_LABELS.map((lbl,h)=>(
+                    <div key={h} style={{display:'flex',alignItems:'center'}}>
+                      <div style={{width:LW,flexShrink:0,textAlign:'right',paddingRight:6,color:dataType==='clouds'&&h>=1&&h<=5?'#7AAFC4':'#FFFFFF',fontSize:11,fontWeight:700,lineHeight:`${CH}px`,fontFamily:FONT,background:'#0A0A0A'}}>{lbl}</div>
+                      {Array.from({length:nDays},(_,d)=>(<Cell key={d} val={grid[h]?.[d]??null}/>))}
+                      <div style={{width:8,flexShrink:0,height:CH,borderBottom:'1px solid rgba(255,255,255,0.06)',background:'#0A0A0A'}}/>
+                      {(()=>{ const ra=rowAvgs[h]; const bg=getColor(ra,sc); return(<div style={{width:AW,height:CH,flexShrink:0,background:anomBg(bg,ra,dataType),display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:cellTextColor(dataType),fontWeight:700,fontFamily:FONT,borderLeft:'1px solid rgba(255,215,0,0.25)',borderRight:'1px solid rgba(0,0,0,0.3)',borderBottom:'1px solid rgba(0,0,0,0.3)'}}>{dt.fmt(ra)}</div>); })()}
+                    </div>
+                  ))}
+                  <div style={{height:5,background:'#0A0A0A'}}/>
+                  <div style={{display:'flex',alignItems:'center'}}>
+                    <div style={{width:LW,flexShrink:0,textAlign:'right',paddingRight:6,color:'#FFD700',fontSize:11,fontWeight:700,lineHeight:`${CH}px`,fontFamily:FONT,background:'#0A0A0A'}}>Avg</div>
+                    {colAvgs.map((ca,d)=>{ const bg=getColor(ca,sc); return(<div key={d} style={{width:CW,height:CH,flexShrink:0,background:anomBg(bg,ca,dataType),display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:cellTextColor(dataType),fontWeight:700,fontFamily:FONT,borderTop:'1px solid rgba(255,215,0,0.2)',borderRight:'1px solid rgba(0,0,0,0.3)'}}>{dt.fmt(ca)}</div>); })}
+                    <div style={{width:8,flexShrink:0,height:CH,background:'#0A0A0A'}}/>
+                    {(()=>{ const bg=getColor(overallAvg,sc); return(<div style={{width:AW,height:CH,flexShrink:0,background:anomBg(bg,overallAvg,dataType),display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:cellTextColor(dataType),fontWeight:700,fontFamily:FONT,borderTop:'1px solid rgba(255,215,0,0.2)',borderLeft:'1px solid rgba(255,215,0,0.25)'}}>{dt.fmt(overallAvg)}</div>); })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {!loading&&!error&&!grid&&yearData&&(<div style={{color:'#888',fontSize:13,padding:'20px 0'}}>No data for {FULL_MONTHS[mIdx]} {year}.</div>)}
+          <div style={{marginTop:10,display:'flex',justifyContent:'space-between',fontSize:11,color:'#888',flexWrap:'wrap',gap:4}}>
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              <span>Eastern Daylight Time · Obs assigned to nearest hour</span>
+              {dataType==='clouds'&&(<span><span style={{color:'#7AAFC4',fontWeight:700}}>1–5 AM</span> hours are automated observations</span>)}
+            </div>
+            <span>Data: IEM &amp; NOAA · Chart: Josh Timlin</span>
+          </div>
+        </div>
+      );
+    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<ISPHeatmap />);
+  </script>
+</body>
+</html>
+```
+</details>
