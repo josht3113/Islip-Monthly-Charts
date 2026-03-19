@@ -1,162 +1,166 @@
+<details>
+<summary>Click to expand — select all and copy</summary>
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ISP Weather Heatmap — Islip, NY</title>
-  <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0A0A0A;}</style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ISP Weather Heatmap</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0A0A0A;color:#e0e0e0;}</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script>
-    const e = React.createElement;
-    const {useState, useMemo, useCallback, useEffect} = React;
-
-    const DATA_BASE_URL = 'https://josht3113.github.io/Islip-Monthly-Charts/';
-    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const FULL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const HOUR_LABELS = ['Midnight','1','2','3','4','5','6','7','8','9','10','11','Noon','1','2','3','4','5','6','7','8','9','10','11'];
-    const YEARS = Array.from({length:38},(_,i)=>1988+i);
-    const FONT = "'Aptos','Segoe UI',system-ui,sans-serif";
-    const CW=29,CH=26,LW=72,AW=47;
-
-    const DATA_TYPES = [
-      {id:'temp',     label:'Temperature',      unit:'°F', fmt:function(v){return v==null?'':String(Math.round(v));}},
-      {id:'td',       label:'Dewpoint',         unit:'°F', fmt:function(v){return v==null?'':String(Math.round(v));}},
-      {id:'clouds',   label:'Cloud Cover',      unit:'ok', fmt:function(v){return v==null?'':];}},
-      {id:'wind',     label:'Wind Speed',       unit:'mph',fmt:function(v){return v==null?'':String(Math.round(v));}},
-      {id:'temp_anom',label:'Temp Anomaly',     unit:'°F', fmt:function(v){return v==null?'':(Math.round(v)>0?'+':'')+Math.round(v);}},
-      {id:'td_anom',  label:'Dewpoint Anomaly', unit:'°F', fmt:function(v){return v==null?'':(Math.round(v)>0?'+':'')+Math.round(v);}},
-      {id:'temp_z',   label:'Temp Std Dev',     unit:'σ',  fmt:function(v){return v==null?'':v.toFixed(1);}},
-      {id:'td_z',     label:'Dewpoint Std Dev', unit:'σ',  fmt:function(v){return v==null?'':v.toFixed(1);}},
-    ];
-
-    const SCALES = {
-      temp:      {vals:[-5,25,50,75,102],        cols:['#FFB3C6','#A8D4F0','#5DBF6A','#FFE033','#D41A1A']},
-      td:        {vals:[-25,5,18,30,55,68,80],   cols:['#4A3410','#B89870','#D4C060','#FFEE00','#3DB84A','#2A8C30','#2A72C8']},
-      clouds:    {vals:[1,2,3,4,5],              cols:['#F5FA82','#C5C46A','#848477','#626258','#404040']},
-      wind:      {vals:[0,5,10,15,20,25,30,40],  cols:['#232323','#545E6B','#7D9BB5','#B4C8E3','#CEB8CC','#E09999','#EC7570','#E3625C']},
-      temp_anom: {vals:[-30,-10,-3,0,3,10,30],   cols:['#4466EE','#2E4A60','#162130','#0D1620','#3A1010','#AA1010','#FF3434']},
-      td_anom:   {vals:[-30,-15,-5,0,5,15,30],   cols:['#C8920A','#8C6208','#3D2A02','#2B2200','#2A3800','#4A6A00','#7DC840']},
-      temp_z:    {vals:[-5,-3,-2,-1.2,-0.5,0,0.5,1.2,2,3,5],cols:['#FFB3C6','#6AAACF','#3E7AAA','#1E4A72','#0D2238','#0D1218','#38120A','#962010','#D03A18','#F05030','#FFE000']},
-      td_z:      {vals:[-5,-3,-2,-1.2,-0.5,0,0.5,1.2,2,3,5],cols:['#FFB3C6','#68A8CC','#3C78A8','#1C4870','#0C2036','#0D1218','#38120A','#942010','#CC3816','#EE4E2E','#FFE000']},
-    };
-
-    function h2r(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
-    function lerp(a,b,t){return Math.round(a+(b-a)*t);}
-    function getColor(val,sc){
-      if(val==null)return'#111';
-      var vals=sc.vals,cols=sc.cols;
-      if(val<=vals[0])return cols[0];
-      if(val>=vals[vals.length-1])return cols[cols.length-1];
-      for(var i=0;i<vals.length-1;i++){
-        if(val>=vals[i]&&val<=vals[i+1]){
-          var t=(val-vals[i])/(vals[i+1]-vals[i]);
-          var c0=h2r(cols[i]),c1=h2r(cols[i+1]);
-          return'rgb('+lerp(c0[0],c1[0],t)+','+lerp(c0[1],c1[1],t)+','+lerp(c0[2],c1[2],t)+')';
-        }
-      }
-      return cols[cols.length-1];
-    }
-    function cellTextColor(dt){return(dt==='temp'||dt==='td')?'#000':'#fff';}
-    function anomBg(col,val,dt){
-      if((dt==='temp_anom'||dt==='td_anom')&&val!=null&&Math.abs(val)<5){
-        var rgb;
-        if(col.startsWith('rgb')){rgb=col.match(/\d+/g).map(Number);}
-        else{rgb=h2r(col);}
-        return'rgb('+Math.round(rgb[0]*.725)+','+Math.round(rgb[1]*.725)+','+Math.round(rgb[2]*.725)+')';
-      }
-      return col;
-    }
-    function avg(arr,n){
-      var v=arr.slice(0,n).filter(function(x){return x!=null;});
-      return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null;
-    }
-    function scaleToCss(sc){
-      var lo=sc.vals[0],span=sc.vals[sc.vals.length-1]-lo;
-      return'linear-gradient(to right,'+sc.cols.map(function(c,i){return c+' '+((sc.vals[i]-lo)/span*100).toFixed(1)+'%';}).join(',')+')';}
-
-    function App(){
-      var yearState=useState(2025); var year=yearState[0],setYear=yearState[1];
-      var monthState=useState('Jan'); var month=monthState[0],setMonth=monthState[1];
-      var dtState=useState('temp'); var dataType=dtState[0],setDataType=dtState[1];
-      var ydState=useState(null); var yearData=ydState[0],setYearData=ydState[1];
-      var loadState=useState(true); var loading=loadState[0],setLoading=loadState[1];
-      var errState=useState(null); var error=errState[0],setError=errState[1];
-
-      useEffect(function(){
-        setLoading(true); setError(null); setYearData(null);
-        fetch(DATA_BASE_URL+year+'.json')
-          .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-          .then(function(d){setYearData(d);setLoading(false);})
-          .catch(function(err){setError(err.message);setLoading(false);});
-      },[year]);
-
-      var md=yearData&&yearData[month];
-      var nDays=md?md.nDays:31;
-      var grid=md?md[dataType]:null;
-      var sc=SCALES[dataType];
-      var dtObj=DATA_TYPES.find(function(d){return d.id===dataType;});
-      var mIdx=MONTHS.indexOf(month);
-      var rowAvgs=useMemo(function(){return grid?grid.map(function(row){return avg(row,nDays);}):Array(24).fill(null);},[grid,nDays]);
-      var colAvgs=useMemo(function(){return grid?Array.from({length:nDays},function(_,d){return avg(grid.map(function(r){return r[d];}),24);}):[];},[grid,nDays]);
-      var overallAvg=useMemo(function(){var v=rowAvgs.filter(function(x){return x!=null;});return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null;},[rowAvgs]);
-      var loVal=sc.vals[0],hiVal=sc.vals[sc.vals.length-1];
-
-      function Cell(val){
-        var bg=anomBg(getColor(val,sc),val,dataType);
-        return e('div',{style:{width:CW,height:CH,flexShrink:0,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:cellTextColor(dataType),fontWeight:700,fontFamily:FONT,letterSpacing:'-0.3px',borderRight:'1px solid rgba(0,0,0,0.3)',borderBottom:'1px solid rgba(0,0,0,0.3)',userSelect:'none'}},dtObj.fmt(val));
-      }
-
-      return e('div',{style:{background:'#0A0A0A',minHeight:'100vh',fontFamily:FONT,padding:'14px 12px',color:'#e0e0e0'}},
-        e('div',{style:{marginBottom:10}},
-          e('div',{style:{color:'#fff',fontSize:22,fontWeight:700,letterSpacing:'0.03em'}},dtObj.label+'\u00a0\u00a0|\u00a0\u00a0Islip, NY'),
-          e('div',{style:{color:'#FFD700',fontSize:16,fontWeight:700,marginTop:2}},FULL_MONTHS[mIdx]+' '+year)),
-        e('div',{style:{marginBottom:8}},
-          e('label',{style:{fontSize:11,color:'#888',marginRight:8}},'Year:'),
-          e('select',{value:year,onChange:function(ev){setYear(Number(ev.target.value));},style:{background:'#1a1a1a',border:'1px solid #2a2a2a',color:'#7ec8ff',padding:'3px 8px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT,fontWeight:700}},
-            YEARS.map(function(y){return e('option',{key:y,value:y},y);}))),
-        e('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
-          e('span',{style:{fontSize:11,color:'#888'}},loVal+dtObj.unit),
-          e('div',{style:{height:12,width:220,borderRadius:1,background:scaleToCss(sc),border:'1px solid rgba(255,255,255,0.08)'}}),
-          e('span',{style:{fontSize:11,color:'#888'}},hiVal+dtObj.unit)),
-        e('div',{style:{display:'flex',gap:3,marginBottom:6,flexWrap:'wrap'}},
-          MONTHS.map(function(m){return e('button',{key:m,onClick:function(){setMonth(m);},style:{background:m===month?'#1a3050':'#111',border:'1px solid '+(m===month?'#4da6ff':'#2a2a2a'),color:m===month?'#7ec8ff':'#8899aa',padding:'3px 9px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT,fontWeight:m===month?700:400}},m);})),
-        e('div',{style:{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}},
-          DATA_TYPES.map(function(dt2){return e('button',{key:dt2.id,onClick:function(){setDataType(dt2.id);},style:{background:dt2.id===dataType?'#111a0a':'#111',border:'1px solid '+(dt2.id===dataType?'#FFD700':'#2a2a2a'),color:dt2.id===dataType?'#FFD700':'#8899aa',padding:'2px 7px',fontSize:9,cursor:'pointer',borderRadius:2,fontFamily:FONT,fontWeight:dt2.id===dataType?700:400,whiteSpace:'nowrap'}},dt2.label);})),
-        loading?e('div',{style:{color:'#4da6ff',fontSize:13,padding:'20px 0'}},'Loading '+year+' data\u2026'):null,
-        error?e('div',{style:{color:'#FF6666',fontSize:13,padding:'20px 0'}},'Error: '+error):null,
-        (!loading&&!error&&grid)?e('div',{style:{display:'inline-block',border:'1.5px solid rgba(255,255,255,0.85)',borderRadius:2,overflow:'hidden'}},
-          e('div',{style:{overflowX:'auto',WebkitOverflowScrolling:'touch'}},
-            e('div',{style:{display:'inline-block',minWidth:'max-content'}},
-              e('div',{style:{display:'flex',alignItems:'center',background:'#0A0A0A',marginBottom:1}},
-                e('div',{style:{width:LW,flexShrink:0}}),
-                Array.from({length:nDays},function(_,i){return e('div',{key:i,style:{width:CW,flexShrink:0,textAlign:'center',color:'#fff',fontSize:11,fontWeight:700,lineHeight:CH+'px',fontFamily:FONT}},i+1);}),
-                e('div',{style:{width:8,flexShrink:0}}),
-                e('div',{style:{width:AW,flexShrink:0,textAlign:'center',color:'#FFD700',fontSize:11,fontWeight:700,lineHeight:CH+'px',fontFamily:FONT}},'Avg')),
-              HOUR_LABELS.map(function(lbl,h){
-                return e('div',{key:h,style:{display:'flex',alignItems:'center'}},
-                  e('div',{style:{width:LW,flexShrink:0,textAlign:'right',paddingRight:6,color:dataType==='clouds'&&h>=1&&h<=5?'#7AAFC4':'#fff',fontSize:11,fontWeight:700,lineHeight:CH+'px',fontFamily:FONT,background:'#0A0A0A'}},lbl),
-                  Array.from({length:nDays},function(_,d){return Cell(grid[h]?grid[h][d]!=null?grid[h][d]:null:null);}),
-                  e('div',{style:{width:8,flexShrink:0,height:CH,borderBottom:'1px solid rgba(255,255,255,0.06)',background:'#0A0A0A'}}),
-                  (function(){var ra=rowAvgs[h];var bg=anomBg(getColor(ra,sc),ra,dataType);return e('div',{style:{width:AW,height:CH,flexShrink:0,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:cellTextColor(dataType),fontWeight:700,fontFamily:FONT,borderLeft:'1px solid rgba(255,215,0,0.25)',borderRight:'1px solid rgba(0,0,0,0.3)',borderBottom:'1px solid rgba(0,0,0,0.3)'}},dtObj.fmt(ra)));})()); }),
-              e('div',{style:{height:5,background:'#0A0A0A'}}),
-              e('div',{style:{display:'flex',alignItems:'center'}},
-                e('div',{style:{width:LW,flexShrink:0,textAlign:'right',paddingRight:6,color:'#FFD700',fontSize:11,fontWeight:700,lineHeight:CH+'px',fontFamily:FONT,background:'#0A0A0A'}},'Avg'),
-                colAvgs.map(function(ca,d){var bg=anomBg(getColor(ca,sc),ca,dataType);return e('div',{key:d,style:{width:CW,height:CH,flexShrink:0,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:cellTextColor(dataType),fontWeight:700,fontFamily:FONT,borderTop:'1px solid rgba(255,215,0,0.2)',borderRight:'1px solid rgba(0,0,0,0.3)'}},dtObj.fmt(ca));}),
-                e('div',{style:{width:8,flexShrink:0,height:CH,background:'#0A0A0A'}}),
-                (function(){var bg=anomBg(getColor(overallAvg,sc),overallAvg,dataType);return e('div',{style:{width:AW,height:CH,flexShrink:0,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:cellTextColor(dataType),fontWeight:700,fontFamily:FONT,borderTop:'1px solid rgba(255,215,0,0.2)',borderLeft:'1px solid rgba(255,215,0,0.25)'}},dtObj.fmt(overallAvg));})()))):null,
-        (!loading&&!error&&!grid&&yearData)?e('div',{style:{color:'#888',fontSize:13,padding:'20px 0'}},'No data for '+FULL_MONTHS[mIdx]+' '+year+'.'):null,
-        e('div',{style:{marginTop:10,display:'flex',justifyContent:'space-between',fontSize:11,color:'#888',flexWrap:'wrap',gap:4}},
-          e('div',{style:{display:'flex',flexDirection:'column',gap:3}},
-            e('span',null,'Eastern Daylight Time \u00b7 Obs assigned to nearest hour'),
-            dataType==='clouds'?e('span',null,e('span',{style:{color:'#7AAFC4',fontWeight:700}},'1\u20135 AM'),' hours are automated observations'):null),
-          e('span',null,'Data: IEM & NOAA \u00b7 Chart: Josh Timlin')));
-    }
-
-    ReactDOM.createRoot(document.getElementById('root')).render(e(App,null));
-  </script>
+<div id="root"><div style="color:#4da6ff;padding:20px;font-family:sans-serif;">Loading...</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+var e=React.createElement;
+var useState=React.useState;
+var useMemo=React.useMemo;
+var useEffect=React.useEffect;
+var BASE='https://josht3113.github.io/Islip-Monthly-Charts/';
+var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var FMONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+var HOURS=['Midnight','1','2','3','4','5','6','7','8','9','10','11','Noon','1','2','3','4','5','6','7','8','9','10','11'];
+var YEARS=[];for(var yi=1988;yi<=2025;yi++)YEARS.push(yi);
+var FONT="'Segoe UI',system-ui,sans-serif";
+var CW=29,CH=26,LW=72,AW=47;
+var DTYPES=[
+{id:'temp',     label:'Temperature',      unit:'F', fmt:function(v){return v==null?'':String(Math.round(v));}},
+{id:'td',       label:'Dewpoint',         unit:'F', fmt:function(v){return v==null?'':String(Math.round(v));}},
+{id:'clouds',   label:'Cloud Cover',      unit:'',  fmt:function(v){return '';}},
+{id:'wind',     label:'Wind Speed',       unit:'mph',fmt:function(v){return v==null?'':String(Math.round(v));}},
+{id:'temp_anom',label:'Temp Anomaly',     unit:'F', fmt:function(v){if(v==null)return '';var r=Math.round(v);return(r>0?'+':'')+r;}},
+{id:'td_anom',  label:'Dewpoint Anomaly', unit:'F', fmt:function(v){if(v==null)return '';var r=Math.round(v);return(r>0?'+':'')+r;}},
+{id:'temp_z',   label:'Temp Std Dev',     unit:'s', fmt:function(v){return v==null?'':v.toFixed(1);}},
+{id:'td_z',     label:'Dewpoint Std Dev', unit:'s', fmt:function(v){return v==null?'':v.toFixed(1);}},
+];
+var SCALES={
+temp:     {vals:[-5,25,50,75,102],       cols:['#FFB3C6','#A8D4F0','#5DBF6A','#FFE033','#D41A1A']},
+td:       {vals:[-25,5,18,30,55,68,80],  cols:['#4A3410','#B89870','#D4C060','#FFEE00','#3DB84A','#2A8C30','#2A72C8']},
+clouds:   {vals:[1,2,3,4,5],             cols:['#F5FA82','#C5C46A','#848477','#626258','#404040']},
+wind:     {vals:[0,5,10,15,20,25,30,40], cols:['#232323','#545E6B','#7D9BB5','#B4C8E3','#CEB8CC','#E09999','#EC7570','#E3625C']},
+temp_anom:{vals:[-30,-10,-3,0,3,10,30],  cols:['#4466EE','#2E4A60','#162130','#0D1620','#3A1010','#AA1010','#FF3434']},
+td_anom:  {vals:[-30,-15,-5,0,5,15,30],  cols:['#C8920A','#8C6208','#3D2A02','#2B2200','#2A3800','#4A6A00','#7DC840']},
+temp_z:   {vals:[-5,-3,-2,-1.2,-0.5,0,0.5,1.2,2,3,5],cols:['#FFB3C6','#6AAACF','#3E7AAA','#1E4A72','#0D2238','#0D1218','#38120A','#962010','#D03A18','#F05030','#FFE000']},
+td_z:     {vals:[-5,-3,-2,-1.2,-0.5,0,0.5,1.2,2,3,5],cols:['#FFB3C6','#68A8CC','#3C78A8','#1C4870','#0C2036','#0D1218','#38120A','#942010','#CC3816','#EE4E2E','#FFE000']},
+};
+function h2r(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function lrp(a,b,t){return Math.round(a+(b-a)t);}
+function getColor(val,sc){
+if(val==null)return'#111';
+var vs=sc.vals,cs=sc.cols;
+if(val<=vs[0])return cs[0];
+if(val>=vs[vs.length-1])return cs[cs.length-1];
+for(var i=0;i<vs.length-1;i++){
+if(val>=vs[i]&&val<=vs[i+1]){
+var t=(val-vs[i])/(vs[i+1]-vs[i]);
+var a=h2r(cs[i]),b=h2r(cs[i+1]);
+return'rgb('+lrp(a[0],b[0],t)+','+lrp(a[1],b[1],t)+','+lrp(a[2],b[2],t)+')';
+}
+}
+return cs[cs.length-1];
+}
+function txtCol(dt){return(dt==='temp'||dt==='td')?'#000':'#fff';}
+function aBg(col,val,dt){
+if((dt==='temp_anom'||dt==='td_anom')&&val!=null&&Math.abs(val)<5){
+var rgb=col.startsWith('rgb')?col.match(/\d+/g).map(Number):h2r(col);
+return'rgb('+Math.round(rgb[0].725)+','+Math.round(rgb[1].725)+','+Math.round(rgb[2].725)+')';
+}
+return col;
+}
+function avg(arr,n){
+var v=arr.slice(0,n).filter(function(x){return x!=null;});
+return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null;
+}
+function gradCss(sc){
+var lo=sc.vals[0],span=sc.vals[sc.vals.length-1]-lo;
+return'linear-gradient(to right,'+sc.cols.map(function(c,i){return c+' '+((sc.vals[i]-lo)/span*100).toFixed(1)+'%';}).join(',')+')';
+}
+function App(){
+var s1=useState(2025);var year=s1[0],setYear=s1[1];
+var s2=useState('Jan');var month=s2[0],setMonth=s2[1];
+var s3=useState('temp');var dt=s3[0],setDt=s3[1];
+var s4=useState(null);var data=s4[0],setData=s4[1];
+var s5=useState(true);var loading=s5[0],setLoading=s5[1];
+var s6=useState(null);var err=s6[0],setErr=s6[1];
+useEffect(function(){
+setLoading(true);setErr(null);setData(null);
+fetch(BASE+year+'.json')
+.then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+.then(function(d){setData(d);setLoading(false);})
+.catch(function(ex){setErr(ex.message);setLoading(false);});
+},[year]);
+var md=data&&data[month];
+var nDays=md?md.nDays:31;
+var grid=md?md[dt]:null;
+var sc=SCALES[dt];
+var dtObj=null;
+for(var di=0;di<DTYPES.length;di++){if(DTYPES[di].id===dt){dtObj=DTYPES[di];break;}}
+var mIdx=MONTHS.indexOf(month);
+var rowAvgs=useMemo(function(){
+if(!grid)return new Array(24).fill(null);
+return grid.map(function(row){return avg(row,nDays);});
+},[grid,nDays]);
+var colAvgs=useMemo(function(){
+if(!grid)return[];
+return Array.from({length:nDays},function(_,d){return avg(grid.map(function(r){return r[d];}),24);});
+},[grid,nDays]);
+var overall=useMemo(function(){
+var v=rowAvgs.filter(function(x){return x!=null;});
+return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null;
+},[rowAvgs]);
+var lo=sc.vals[0],hi=sc.vals[sc.vals.length-1];
+function cell(val){
+var bg=aBg(getColor(val,sc),val,dt);
+return e('div',{style:{width:CW,height:CH,flexShrink:0,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:txtCol(dt),fontWeight:700,fontFamily:FONT,borderRight:'1px solid rgba(0,0,0,0.3)',borderBottom:'1px solid rgba(0,0,0,0.3)',userSelect:'none'}},dtObj.fmt(val));
+}
+return e('div',{style:{background:'#0A0A0A',minHeight:'100vh',padding:'14px 12px',fontFamily:FONT,color:'#e0e0e0'}},
+e('div',{style:{marginBottom:10}},
+e('div',{style:{color:'#fff',fontSize:22,fontWeight:700}},dtObj.label+'  |  Islip, NY'),
+e('div',{style:{color:'#FFD700',fontSize:16,fontWeight:700,marginTop:2}},FMONTHS[mIdx]+' '+year)),
+e('div',{style:{marginBottom:8}},
+e('label',{style:{fontSize:11,color:'#888',marginRight:8}},'Year:'),
+e('select',{value:year,onChange:function(ev){setYear(Number(ev.target.value));},style:{background:'#1a1a1a',border:'1px solid #333',color:'#7ec8ff',padding:'3px 8px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT,fontWeight:700}},
+YEARS.map(function(y){return e('option',{key:y,value:y},y);}))),
+e('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
+e('span',{style:{fontSize:11,color:'#888'}},lo),
+e('div',{style:{height:12,width:200,background:gradCss(sc),border:'1px solid rgba(255,255,255,0.1)'}}),
+e('span',{style:{fontSize:11,color:'#888'}},hi)),
+e('div',{style:{display:'flex',gap:3,marginBottom:6,flexWrap:'wrap'}},
+MONTHS.map(function(m){return e('button',{key:m,onClick:function(){setMonth(m);},style:{background:m===month?'#1a3050':'#111',border:'1px solid '+(m===month?'#4da6ff':'#2a2a2a'),color:m===month?'#7ec8ff':'#8899aa',padding:'3px 9px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT}},m);})),
+e('div',{style:{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}},
+DTYPES.map(function(d2){return e('button',{key:d2.id,onClick:function(){setDt(d2.id);},style:{background:d2.id===dt?'#111a0a':'#111',border:'1px solid '+(d2.id===dt?'#FFD700':'#2a2a2a'),color:d2.id===dt?'#FFD700':'#8899aa',padding:'2px 7px',fontSize:9,cursor:'pointer',borderRadius:2,fontFamily:FONT,whiteSpace:'nowrap'}},d2.label);})),
+loading?e('div',{style:{color:'#4da6ff',padding:'20px 0'}},'Loading '+year+'...'):null,
+err?e('div',{style:{color:'#f66',padding:'20px 0'}},'Error: '+err):null,
+(!loading&&!err&&grid)?e('div',{style:{display:'inline-block',border:'1.5px solid rgba(255,255,255,0.85)',borderRadius:2,overflow:'hidden'}},
+e('div',{style:{overflowX:'auto'}},
+e('div',{style:{display:'inline-block',minWidth:'max-content'}},
+e('div',{style:{display:'flex',background:'#0A0A0A',marginBottom:1}},
+e('div',{style:{width:LW,flexShrink:0}}),
+Array.from({length:nDays},function(,i){return e('div',{key:i,style:{width:CW,flexShrink:0,textAlign:'center',color:'#fff',fontSize:11,fontWeight:700,lineHeight:CH+'px'}},i+1);}),
+e('div',{style:{width:8,flexShrink:0}}),
+e('div',{style:{width:AW,flexShrink:0,textAlign:'center',color:'#FFD700',fontSize:11,fontWeight:700,lineHeight:CH+'px'}},'Avg')),
+HOURS.map(function(lbl,h){
+var ra=rowAvgs[h];
+var rabg=aBg(getColor(ra,sc),ra,dt);
+return e('div',{key:h,style:{display:'flex',alignItems:'center'}},
+e('div',{style:{width:LW,flexShrink:0,textAlign:'right',paddingRight:6,color:'#fff',fontSize:11,fontWeight:700,lineHeight:CH+'px',background:'#0A0A0A'}},lbl),
+Array.from({length:nDays},function(,d){var val=grid[h]&&grid[h][d]!=null?grid[h][d]:null;return cell(val);}),
+e('div',{style:{width:8,flexShrink:0,height:CH,background:'#0A0A0A',borderBottom:'1px solid rgba(255,255,255,0.05)'}}),
+e('div',{style:{width:AW,height:CH,flexShrink:0,background:rabg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:txtCol(dt),fontWeight:700,borderLeft:'1px solid rgba(255,215,0,0.25)',borderBottom:'1px solid rgba(0,0,0,0.3)'}},dtObj.fmt(ra)));
+}),
+e('div',{style:{height:5,background:'#0A0A0A'}}),
+e('div',{style:{display:'flex'}},
+e('div',{style:{width:LW,flexShrink:0,textAlign:'right',paddingRight:6,color:'#FFD700',fontSize:11,fontWeight:700,lineHeight:CH+'px',background:'#0A0A0A'}},'Avg'),
+colAvgs.map(function(ca,d){var bg=aBg(getColor(ca,sc),ca,dt);return e('div',{key:d,style:{width:CW,height:CH,flexShrink:0,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:txtCol(dt),fontWeight:700,borderTop:'1px solid rgba(255,215,0,0.2)',borderRight:'1px solid rgba(0,0,0,0.3)'}},dtObj.fmt(ca));}),
+e('div',{style:{width:8,flexShrink:0,height:CH,background:'#0A0A0A'}}),
+e('div',{style:{width:AW,height:CH,flexShrink:0,background:aBg(getColor(overall,sc),overall,dt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:txtCol(dt),fontWeight:700,borderTop:'1px solid rgba(255,215,0,0.2)',borderLeft:'1px solid rgba(255,215,0,0.25)'}},dtObj.fmt(overall)))))):null,
+e('div',{style:{marginTop:10,fontSize:11,color:'#888'}},'Eastern Daylight Time  |  Data: IEM & NOAA  |  Chart: Josh Timlin'));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(e(App,null));
+</script>
 </body>
 </html>
+```
+</details>
