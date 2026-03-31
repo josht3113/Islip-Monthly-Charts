@@ -20,7 +20,7 @@ var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','D
 var FMONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var HOURS=['Midnight','1','2','3','4','5','6','7','8','9','10','11','Noon','1','2','3','4','5','6','7','8','9','10','11'];
 var YEARS=[];
-for(var yi=1973;yi<=2025;yi++){YEARS.push(yi);}
+for(var yi=1973;yi<=2026;yi++){YEARS.push(yi);}
 var FONT="'Segoe UI',system-ui,sans-serif";
 var CW=29,CH=26,LW=72,AW=47;
 var DTYPES=[
@@ -72,16 +72,19 @@ var lo=sc.vals[0],span=sc.vals[sc.vals.length-1]-lo;
 return 'linear-gradient(to right,'+sc.cols.map(function(c,i){return c+' '+((sc.vals[i]-lo)/span*100).toFixed(1)+'%';}).join(',')+')';
 }
 function App(){
-var s1=useState(2025);var year=s1[0],setYear=s1[1];
+var s1=useState(2026);var year=s1[0],setYear=s1[1];
 var s2=useState('Jan');var month=s2[0],setMonth=s2[1];
 var s3=useState('temp');var dt=s3[0],setDt=s3[1];
 var s4=useState(null);var data=s4[0],setData=s4[1];
 var s5=useState(true);var loading=s5[0],setLoading=s5[1];
 var s6=useState(null);var err=s6[0],setErr=s6[1];
 var s7=useState(false);var showModal=s7[0],setShowModal=s7[1];
+var isClimo=year==='climo';
+var CLIMO_DTYPES=['temp','td','clouds','wind'];
 useEffect(function(){
 setLoading(true);setErr(null);setData(null);
-fetch(BASE+year+'.json')
+var url=isClimo?(BASE+'climo.json'):(BASE+year+'.json');
+fetch(url)
 .then(function(r){if(!r.ok){throw new Error('HTTP '+r.status);}return r.json();})
 .then(function(d){setData(d);setLoading(false);})
 .catch(function(ex){setErr(ex.message);setLoading(false);});
@@ -113,11 +116,18 @@ return ce('div',{style:{width:CW,height:CH,flexShrink:0,background:bg,display:'f
 var children=[];
 children.push(ce('div',{key:'title',style:{marginBottom:10}},
 ce('div',{style:{color:'#fff',fontSize:22,fontWeight:700}},dtObj.label+'  |  Islip, NY'),
-ce('div',{style:{color:'#FFD700',fontSize:16,fontWeight:700,marginTop:2}},FMONTHS[mIdx]+' '+year),
+ce('div',{style:{color:'#FFD700',fontSize:16,fontWeight:700,marginTop:2}},isClimo?'1991\u20132020 Climatology':FMONTHS[mIdx]+' '+year),
 isAnom?ce('div',{style:{color:'#aaa',fontSize:11,marginTop:3}},'vs. 1991\u20132020 normals'):null));
 children.push(ce('div',{key:'year',style:{marginBottom:8}},
 ce('label',{style:{fontSize:11,color:'#888',marginRight:8}},'Year:'),
-ce('select',{value:year,onChange:function(ev){setYear(Number(ev.target.value));},style:{background:'#1a1a1a',border:'1px solid #333',color:'#7ec8ff',padding:'3px 8px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT,fontWeight:700}},
+ce('select',{value:year,onChange:function(ev){
+var val=ev.target.value;
+var newYear=val==='climo'?'climo':Number(val);
+if(newYear==='climo'&&CLIMO_DTYPES.indexOf(dt)===-1){setDt('temp');}
+if(newYear!=='climo'&&isClimo&&CLIMO_DTYPES.indexOf(dt)===-1){setDt('temp');}
+setYear(newYear);
+},style:{background:'#1a1a1a',border:'1px solid #333',color:'#7ec8ff',padding:'3px 8px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT,fontWeight:700}},
+ce('option',{key:'climo',value:'climo'},'\u25C6 1991\u20132020 Climo'),
 YEARS.map(function(y){return ce('option',{key:y,value:y},y);}))));
 children.push(ce('div',{key:'bar',style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
 ce('span',{style:{fontSize:11,color:'#888'}},String(lo)),
@@ -126,7 +136,8 @@ ce('span',{style:{fontSize:11,color:'#888'}},String(hi))));
 children.push(ce('div',{key:'months',style:{display:'flex',gap:3,marginBottom:6,flexWrap:'wrap'}},
 MONTHS.map(function(m){return ce('button',{key:m,onClick:function(){setMonth(m);},style:{background:m===month?'#1a3050':'#111',border:'1px solid '+(m===month?'#4da6ff':'#2a2a2a'),color:m===month?'#7ec8ff':'#8899aa',padding:'3px 9px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT}},m);})));
 children.push(ce('div',{key:'dtypes',style:{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}},
-DTYPES.map(function(d2){return ce('button',{key:d2.id,onClick:function(){setDt(d2.id);},style:{background:d2.id===dt?'#111a0a':'#111',border:'1px solid '+(d2.id===dt?'#FFD700':'#2a2a2a'),color:d2.id===dt?'#FFD700':'#8899aa',padding:'2px 7px',fontSize:9,cursor:'pointer',borderRadius:2,fontFamily:FONT,whiteSpace:'nowrap'}},d2.label);})));
+DTYPES.filter(function(d2){return !isClimo||(CLIMO_DTYPES.indexOf(d2.id)!==-1);})
+.map(function(d2){return ce('button',{key:d2.id,onClick:function(){setDt(d2.id);},style:{background:d2.id===dt?'#111a0a':'#111',border:'1px solid '+(d2.id===dt?'#FFD700':'#2a2a2a'),color:d2.id===dt?'#FFD700':'#8899aa',padding:'2px 7px',fontSize:9,cursor:'pointer',borderRadius:2,fontFamily:FONT,whiteSpace:'nowrap'}},d2.label);})));
 if(loading){children.push(ce('div',{key:'load',style:{color:'#4da6ff',padding:'20px 0'}},'Loading '+year+'...'));}
 if(err){children.push(ce('div',{key:'err',style:{color:'#f66',padding:'20px 0'}},'Error: '+err));}
 if(!loading&&!err&&grid){
@@ -159,7 +170,7 @@ ce('div',{onClick:function(e){e.stopPropagation();},style:{background:'#0A0A0A',
 ce('button',{onClick:function(){setShowModal(false);},style:{position:'absolute',top:10,right:10,background:'#111',border:'1px solid #444',color:'#ccc',width:28,height:28,cursor:'pointer',fontSize:18,lineHeight:'28px',textAlign:'center',borderRadius:2,fontFamily:FONT}},'\u00d7'),
 ce('div',{style:{marginBottom:10,paddingRight:40}},
 ce('div',{style:{color:'#fff',fontSize:22,fontWeight:700}},dtObj.label+'  |  Islip, NY'),
-ce('div',{style:{color:'#FFD700',fontSize:16,fontWeight:700,marginTop:2}},FMONTHS[mIdx]+' '+year),
+ce('div',{style:{color:'#FFD700',fontSize:16,fontWeight:700,marginTop:2}},isClimo?'1991\u20132020 Climatology':FMONTHS[mIdx]+' '+year),
 isAnom?ce('div',{style:{color:'#aaa',fontSize:11,marginTop:3}},'vs. 1991\u20132020 normals'):null),
 ce('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
 ce('span',{style:{fontSize:11,color:'#888'}},String(lo)),
