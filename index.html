@@ -24,6 +24,7 @@ var YEARS=[];
 for(var yi=1973;yi<=2026;yi++){YEARS.push(yi);}
 var FONT="'Segoe UI',system-ui,sans-serif";
 var CW=29,CH=26,LW=72,AW=47;
+var LOGO_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="115" height="14" viewBox="0 0 115 14" style="display:inline-block;vertical-align:middle;margin-left:2px"><text y="11" font-family="\'Segoe UI\',system-ui,sans-serif" font-size="11" font-weight="700" fill="#4AADBE">[ ]</text><text x="20" y="11" font-family="\'Segoe UI\',system-ui,sans-serif" font-size="11" font-weight="600" fill="#e0e0e0">ContextClimate</text></svg>';
 var DTYPES=[
 {id:'temp',label:'Temperature',fmt:function(v){return v==null?'':String(Math.round(v));}},
 {id:'td',label:'Dewpoint',fmt:function(v){return v==null?'':String(Math.round(v));}},
@@ -178,7 +179,7 @@ ce('span',{style:{fontSize:11,color:'#888'}},String(hi))
 ce('div',{style:{border:'1.5px solid rgba(255,255,255,0.85)',borderRadius:2,overflow:'hidden'}},
 ce('div',{style:{overflowX:'auto'}},gridInner())
 ),
-ce('div',{style:{marginTop:10,fontSize:11,color:'#888'}},'Eastern Daylight Time  |  Data: IEM & NOAA  |  Chart: Josh Timlin')
+ce('div',{style:{marginTop:10,fontSize:11,color:'#888',display:'flex',alignItems:'center'},dangerouslySetInnerHTML:{__html:'Eastern Daylight Time\u2002|\u2002Data: IEM & NOAA\u2002|\u2002'+LOGO_SVG}})
 );
 var closeBtn=ce('button',{onClick:function(){setShowModal(false);},style:{position:'absolute',top:10,right:10,background:'#111',border:'1px solid #444',color:'#ccc',width:28,height:28,cursor:'pointer',fontSize:18,lineHeight:'28px',textAlign:'center',borderRadius:2,fontFamily:FONT}},'\u00d7');
 var copyBtn=ce('button',{onClick:function(){
@@ -201,7 +202,7 @@ ce('div',{onClick:function(e){e.stopPropagation();},style:{background:'#0A0A0A',
 closeBtn,copyBtn,modalContent)));
 }
 }
-children.push(ce('div',{key:'footer',style:{marginTop:10,fontSize:11,color:'#888'}},'Eastern Daylight Time  |  Data: IEM & NOAA  |  Chart: Josh Timlin'));
+children.push(ce('div',{key:'footer',style:{marginTop:10,fontSize:11,color:'#888',display:'flex',alignItems:'center'},dangerouslySetInnerHTML:{__html:'Eastern Daylight Time\u2002|\u2002Data: IEM & NOAA\u2002|\u2002'+LOGO_SVG}}));
 return ce('div',{style:{background:'#0A0A0A',minHeight:'100vh',padding:'14px 12px',fontFamily:FONT,color:'#e0e0e0'}},children);
 }
 ReactDOM.createRoot(document.getElementById('root')).render(ce(App,null));
