@@ -10,6 +10,7 @@
 <div id="root"><div style="color:#4da6ff;padding:20px;font-family:sans-serif;">Loading...</div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 var ce=React.createElement;
 var useState=React.useState;
@@ -38,7 +39,7 @@ temp:{vals:[-5,25,50,75,102],cols:['#FFB3C6','#A8D4F0','#5DBF6A','#FFE033','#D41
 td:{vals:[-25,5,18,30,55,68,80],cols:['#4A3410','#B89870','#D4C060','#FFEE00','#3DB84A','#2A8C30','#2A72C8']},
 clouds:{vals:[1,2,3,4,5],cols:['#F5FA82','#C5C46A','#848477','#626258','#404040']},
 wind:{vals:[0,5,10,15,20,25,30,55],cols:['#232323','#545E6B','#7D9BB5','#B4C8E3','#CEB8CC','#E09999','#E3625C','#FFE033']},
-temp_anom:{vals:[-30,-10,-3,0,3,10,30],cols:['#4466EE','#2E4A60','#162130','#0D1620','#3A1010','#AA1010','#FF3434']},
+temp_anom:{vals:[-40,-24,-16,-10,-4,0,4,10,16,24,40],cols:['#FFB3C6','#6AAACF','#3E7AAA','#1E4A72','#0D2238','#0D1218','#38120A','#962010','#D03A18','#F05030','#FFE000']},
 td_anom:{vals:[-30,-15,-5,0,5,15,30],cols:['#C8920A','#8C6208','#3D2A02','#2B2200','#2A3800','#4A6A00','#7DC840']},
 temp_z:{vals:[-5,-3,-2,-1.2,-0.5,0,0.5,1.2,2,3,5],cols:['#FFB3C6','#6AAACF','#3E7AAA','#1E4A72','#0D2238','#0D1218','#38120A','#962010','#D03A18','#F05030','#FFE000']},
 td_z:{vals:[-5,-3,-2,-1.2,-0.5,0,0.5,1.2,2,3,5],cols:['#FFB3C6','#68A8CC','#3C78A8','#1C4870','#0C2036','#0D1218','#38120A','#942010','#CC3816','#EE4E2E','#FFE000']}
@@ -59,11 +60,7 @@ return 'rgb('+lrp(a[0],b[0],t)+','+lrp(a[1],b[1],t)+','+lrp(a[2],b[2],t)+')';
 return cs[cs.length-1];
 }
 function txtCol(dt){return(dt==='temp'||dt==='td')?'#000':'#fff';}
-function aBg(col,val,dt){
-if((dt==='temp_anom'||dt==='td_anom')&&val!=null&&Math.abs(val)<5){
-var rgb=col.startsWith('rgb')?col.match(/\d+/g).map(Number):h2r(col);
-return 'rgb('+Math.round(rgb[0]*0.725)+','+Math.round(rgb[1]*0.725)+','+Math.round(rgb[2]*0.725)+')';}
-return col;}
+function aBg(col,val,dt){return col;}
 function avg(arr,n){
 var v=arr.slice(0,n).filter(function(x){return x!=null;});
 return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null;}
@@ -79,6 +76,7 @@ var s4=useState(null);var data=s4[0],setData=s4[1];
 var s5=useState(true);var loading=s5[0],setLoading=s5[1];
 var s6=useState(null);var err=s6[0],setErr=s6[1];
 var s7=useState(false);var showModal=s7[0],setShowModal=s7[1];
+var s8=useState('Copy Image');var copyLabel=s8[0],setCopyLabel=s8[1];
 var isClimo=year==='climo';
 var CLIMO_DTYPES=['temp','td','clouds','wind'];
 useEffect(function(){
@@ -165,20 +163,43 @@ ce('div',{style:{height:5,background:'#0A0A0A'}}),
 ce('div',{style:{display:'flex'}},ac));}
 children.push(ce('div',{key:'grid',onClick:function(){setShowModal(true);},style:{display:'inline-block',border:'1.5px solid rgba(255,255,255,0.85)',borderRadius:2,overflow:'hidden',cursor:'pointer',title:'Click to expand'}},
 ce('div',{style:{overflowX:'auto'}},gridInner())));
-if(showModal){children.push(ce('div',{key:'modal',onClick:function(){setShowModal(false);},style:{position:'fixed',top:0,left:0,width:'100%',height:'100%',background:'rgba(0,0,0,0.88)',zIndex:1000,overflowY:'auto',display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'30px 16px',boxSizing:'border-box'}},
-ce('div',{onClick:function(e){e.stopPropagation();},style:{background:'#0A0A0A',border:'1.5px solid rgba(255,255,255,0.5)',borderRadius:4,padding:'18px',position:'relative',display:'inline-block',maxWidth:'100%'}},
-ce('button',{onClick:function(){setShowModal(false);},style:{position:'absolute',top:10,right:10,background:'#111',border:'1px solid #444',color:'#ccc',width:28,height:28,cursor:'pointer',fontSize:18,lineHeight:'28px',textAlign:'center',borderRadius:2,fontFamily:FONT}},'\u00d7'),
-ce('div',{style:{marginBottom:10,paddingRight:40}},
+if(showModal){
+var modalContent=ce('div',{id:'modal-content',style:{paddingTop:44,background:'#0A0A0A'}},
+ce('div',{style:{marginBottom:10}},
 ce('div',{style:{color:'#fff',fontSize:22,fontWeight:700}},dtObj.label+'  |  Islip, NY'),
 ce('div',{style:{color:'#FFD700',fontSize:16,fontWeight:700,marginTop:2}},isClimo?'1991\u20132020 Climatology':FMONTHS[mIdx]+' '+year),
-isAnom?ce('div',{style:{color:'#aaa',fontSize:11,marginTop:3}},'vs. 1991\u20132020 normals'):null),
+isAnom?ce('div',{style:{color:'#aaa',fontSize:11,marginTop:3}},'vs. 1991\u20132020 normals'):null
+),
 ce('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
 ce('span',{style:{fontSize:11,color:'#888'}},String(lo)),
 ce('div',{style:{height:12,width:200,background:gradCss(sc),border:'1px solid rgba(255,255,255,0.1)'}}),
-ce('span',{style:{fontSize:11,color:'#888'}},String(hi))),
+ce('span',{style:{fontSize:11,color:'#888'}},String(hi))
+),
 ce('div',{style:{border:'1.5px solid rgba(255,255,255,0.85)',borderRadius:2,overflow:'hidden'}},
-ce('div',{style:{overflowX:'auto'}},gridInner())),
-ce('div',{style:{marginTop:10,fontSize:11,color:'#888'}},'Eastern Daylight Time  |  Data: IEM & NOAA  |  Chart: Josh Timlin'))));}
+ce('div',{style:{overflowX:'auto'}},gridInner())
+),
+ce('div',{style:{marginTop:10,fontSize:11,color:'#888'}},'Eastern Daylight Time  |  Data: IEM & NOAA  |  Chart: Josh Timlin')
+);
+var closeBtn=ce('button',{onClick:function(){setShowModal(false);},style:{position:'absolute',top:10,right:10,background:'#111',border:'1px solid #444',color:'#ccc',width:28,height:28,cursor:'pointer',fontSize:18,lineHeight:'28px',textAlign:'center',borderRadius:2,fontFamily:FONT}},'\u00d7');
+var copyBtn=ce('button',{onClick:function(){
+var el=document.getElementById('modal-content');
+if(!el||typeof html2canvas==='undefined'){return;}
+setCopyLabel('Copying\u2026');
+html2canvas(el,{backgroundColor:'#0A0A0A',scale:2,useCORS:true,logging:false})
+.then(function(canvas){
+canvas.toBlob(function(blob){
+try{
+navigator.clipboard.write([new ClipboardItem({'image/png':blob})])
+.then(function(){setCopyLabel('Copied!');setTimeout(function(){setCopyLabel('Copy Image');},2000);})
+.catch(function(){setCopyLabel('Failed');setTimeout(function(){setCopyLabel('Copy Image');},2000);});
+}catch(e){setCopyLabel('Failed');setTimeout(function(){setCopyLabel('Copy Image');},2000);}
+},'image/png');
+});
+},style:{position:'absolute',top:10,right:44,background:'#1a2a1a',border:'1px solid #4a7a4a',color:'#7DC840',padding:'0 10px',height:28,cursor:'pointer',fontSize:11,borderRadius:2,fontFamily:FONT,fontWeight:700}},copyLabel);
+children.push(ce('div',{key:'modal',onClick:function(){setShowModal(false);},style:{position:'fixed',top:0,left:0,width:'100%',height:'100%',background:'rgba(0,0,0,0.88)',zIndex:1000,overflowY:'auto',display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'30px 16px',boxSizing:'border-box'}},
+ce('div',{onClick:function(e){e.stopPropagation();},style:{background:'#0A0A0A',border:'1.5px solid rgba(255,255,255,0.5)',borderRadius:4,padding:'18px',position:'relative',display:'inline-block',maxWidth:'100%'}},
+closeBtn,copyBtn,modalContent)));
+}
 }
 children.push(ce('div',{key:'footer',style:{marginTop:10,fontSize:11,color:'#888'}},'Eastern Daylight Time  |  Data: IEM & NOAA  |  Chart: Josh Timlin'));
 return ce('div',{style:{background:'#0A0A0A',minHeight:'100vh',padding:'14px 12px',fontFamily:FONT,color:'#e0e0e0'}},children);
