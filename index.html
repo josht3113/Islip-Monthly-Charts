@@ -109,6 +109,22 @@ var overall=useMemo(function(){
 var v=rowAvgs.filter(function(x){return x!=null;});
 return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null;
 },[rowAvgs]);
+// Display-only grid: nulls filled by averaging the hour above and below.
+// Averages (rowAvgs/colAvgs/overall) still use the original grid so missing obs are excluded.
+var displayGrid=useMemo(function(){
+if(!grid){return null;}
+return grid.map(function(row,h){
+return row.map(function(val,d){
+if(val!=null){return val;}
+var above=(h>0&&grid[h-1][d]!=null)?grid[h-1][d]:null;
+var below=(h<grid.length-1&&grid[h+1][d]!=null)?grid[h+1][d]:null;
+if(above!=null&&below!=null){return(above+below)/2;}
+if(above!=null){return above;}
+if(below!=null){return below;}
+return null;
+});
+});
+},[grid]);
 function cell(val){
 var bg=aBg(getColor(val,sc),val,dt);
 return ce('div',{style:{width:CW,height:CH,flexShrink:0,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:txtCol(dt),fontWeight:700,fontFamily:FONT,borderRight:'1px solid rgba(0,0,0,0.3)',borderBottom:'1px solid rgba(0,0,0,0.3)',userSelect:'none'}},dtObj.fmt(val));}
@@ -149,7 +165,7 @@ var rows=HOURS.map(function(lbl,h){
 var ra=rowAvgs[h];
 var rabg=aBg(getColor(ra,sc),ra,dt);
 var rc=[ce('div',{key:'l',style:{width:LW,flexShrink:0,textAlign:'right',paddingRight:6,color:'#fff',fontSize:11,fontWeight:700,lineHeight:CH+'px',background:'#0A0A0A'}},lbl)];
-for(var d2=0;d2<nDays;d2++){var val=(grid[h]&&grid[h][d2]!=null)?grid[h][d2]:null;rc.push(cell(val));}
+for(var d2=0;d2<nDays;d2++){var val=(displayGrid&&displayGrid[h])?displayGrid[h][d2]:null;rc.push(cell(val));}
 rc.push(ce('div',{key:'sp',style:{width:8,flexShrink:0,height:CH,background:'#0A0A0A',borderBottom:'1px solid rgba(255,255,255,0.05)'}}));
 rc.push(ce('div',{key:'a',style:{width:AW,height:CH,flexShrink:0,background:rabg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:txtCol(dt),fontWeight:700,borderLeft:'1px solid rgba(255,215,0,0.25)',borderBottom:'1px solid rgba(0,0,0,0.3)'}},dtObj.fmt(ra)));
 return ce('div',{key:h,style:{display:'flex',alignItems:'center'}},rc);});
