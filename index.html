@@ -121,6 +121,21 @@ var s14=useState('Copy Image');var copyLabel=s14[0],setCopyLabel=s14[1];
 
 var isAnom=dt==='temp_anom'||dt==='td_anom'||dt==='temp_z'||dt==='td_z';
 
+// PNG download — captures the always-rendered off-screen #hm-cap div
+function downloadPNG(){
+if(!grid){return;}
+var el=document.getElementById('hm-cap');
+if(!el||typeof html2canvas==='undefined'){return;}
+html2canvas(el,{backgroundColor:'#0A0A0A',scale:2,useCORS:true,logging:false,x:0,y:0})
+.then(function(canvas){
+var a=document.createElement('a');
+a.href=canvas.toDataURL('image/png');
+var safe=mode==='single'?year:(mLabel?mLabel.replace('\u2013','-'):'avg');
+a.download='ISP_'+dt+'_'+MONTHS[mIdx]+'_'+safe+'.png';
+document.body.appendChild(a);a.click();document.body.removeChild(a);
+});
+}
+
 // Single-year fetch
 useEffect(function(){
 if(mode!=='single'){setLoading(false);return;}
@@ -308,10 +323,17 @@ padding:'3px 7px',fontSize:12,cursor:'pointer',borderRadius:2,fontFamily:FONT
 }
 
 // Legend
-children.push(ce('div',{key:'bar',style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
+children.push(ce('div',{key:'bar',style:{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}},
 ce('span',{style:{fontSize:11,color:'#888'}},String(lo)),
 ce('div',{style:{height:12,width:200,background:gradCss(sc),border:'1px solid rgba(255,255,255,0.1)'}}),
-ce('span',{style:{fontSize:11,color:'#888'}},String(hi))
+ce('span',{style:{fontSize:11,color:'#888'}},String(hi)),
+ce('button',{onClick:downloadPNG,disabled:!grid||loading,style:{
+background:'#0a2a0a',border:'1px solid '+(grid&&!loading?'#4a7a4a':'#2a3a2a'),
+color:grid&&!loading?'#7DC840':'#4a6040',
+padding:'3px 14px',fontSize:11,cursor:grid&&!loading?'pointer':'default',
+borderRadius:12,fontFamily:FONT,fontWeight:700,marginLeft:12,
+opacity:grid&&!loading?1:0.4,letterSpacing:'0.02em'
+}},'\u2193 PNG')
 ));
 
 // Month buttons
@@ -389,6 +411,27 @@ children.push(ce('div',{key:'modal',onClick:function(){setShowModal(false);},sty
 ce('div',{onClick:function(e){e.stopPropagation();},style:{background:'#0A0A0A',border:'1.5px solid rgba(255,255,255,0.5)',borderRadius:4,padding:'18px',position:'relative',display:'inline-block',maxWidth:'100%'}},
 closeBtn,copyBtn,modalContent)));
 }
+}
+
+// Always-rendered off-screen clone for PNG capture (html2canvas target)
+if(grid){
+children.push(ce('div',{key:'hm-cap-wrap',style:{position:'fixed',top:0,left:'-9999px',zIndex:-1,pointerEvents:'none'}},
+ce('div',{id:'hm-cap',style:{background:'#0A0A0A',padding:'20px 18px',fontFamily:FONT,color:'#e0e0e0',width:'max-content'}},
+ce('div',{style:{marginBottom:10}},
+ce('div',{style:{color:'#fff',fontSize:22,fontWeight:700}},dtObj.label+'  |  Islip, NY'),
+ce('div',{style:{color:'#FFD700',fontSize:16,fontWeight:700,marginTop:2}},subtitle),
+(isAnom&&mode==='single')?ce('div',{style:{color:'#aaa',fontSize:11,marginTop:3}},'vs. 1991\u20132020 normals'):null
+),
+ce('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
+ce('span',{style:{fontSize:11,color:'#888'}},String(lo)),
+ce('div',{style:{height:12,width:200,background:gradCss(sc),border:'1px solid rgba(255,255,255,0.1)'}}),
+ce('span',{style:{fontSize:11,color:'#888'}},String(hi))
+),
+ce('div',{style:{border:'1.5px solid rgba(255,255,255,0.85)',borderRadius:2,overflow:'hidden',display:'inline-block'}},
+gridInner()
+),
+ce('div',{style:{marginTop:10,fontSize:11,color:'#888',display:'flex',alignItems:'center'},dangerouslySetInnerHTML:{__html:'Eastern Daylight Time\u2002|\u2002Data: IEM & NOAA\u2002|\u2002'+LOGO_SVG}})
+)));
 }
 
 // Footer
